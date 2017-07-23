@@ -3,12 +3,12 @@ from catwalk.evaluation import ModelEvaluator
 
 def test_metric_directionality():
     """All metrics must be wrapped using the @Metric decorator available
-    in catwalk.metrics to provide an `optimality` attribute which must
-    be one of 'minimize' or 'maximize'.
+    in catwalk.metrics to provide an `greater_is_better` attribute which must
+    be one of True or False.
     """
     for met in ModelEvaluator.available_metrics.values():
-        assert hasattr(met, 'optimality')
-        assert met.optimality in ('minimize', 'maximize')
+        assert hasattr(met, 'greater_is_better')
+        assert met.greater_is_better in (True, False)
 
 
 def test_fpr():

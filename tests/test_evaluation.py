@@ -10,7 +10,7 @@ from catwalk.storage import InMemoryModelStorageEngine
 import datetime
 
 
-@Metric('maximize')
+@Metric(greater_is_better=True)
 def always_half(predictions_proba, predictions_binary, labels, parameters):
     return 0.5
 

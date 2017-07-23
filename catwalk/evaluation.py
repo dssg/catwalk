@@ -92,8 +92,8 @@ class ModelEvaluator(object):
         self.sort_seed = sort_seed or int(time.time())
         if custom_metrics:
             for m in custom_metrics.values():
-                if not hasattr(m, 'optimality'):
-                    raise ValueError("All metrics must have an optimality parameter")
+                if not hasattr(m, 'greater_is_better'):
+                    raise ValueError("All metrics must have a greater_is_better parameter")
             self.available_metrics.update(custom_metrics)
         if self.db_engine:
             self.sessionmaker = sessionmaker(bind=self.db_engine)
