@@ -1,4 +1,5 @@
 from catwalk.evaluation import ModelEvaluator, generate_binary_at_x
+from catwalk.metrics import Metric
 import testing.postgresql
 
 import numpy
@@ -9,6 +10,7 @@ from catwalk.storage import InMemoryModelStorageEngine
 import datetime
 
 
+@Metric('maximize')
 def always_half(predictions_proba, predictions_binary, labels, parameters):
     return 0.5
 
