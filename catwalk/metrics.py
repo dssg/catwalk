@@ -1,5 +1,6 @@
 import numpy
 from sklearn import metrics
+from sklearn.metrics import confusion_matrix
 
 
 """Metric definitions
@@ -85,30 +86,22 @@ def avg_precision(predictions_proba, _, labels, parameters):
 
 @Metric('maximize')
 def true_positives(_, predictions_binary, labels, parameters):
-     tp = [1 if x == 1 and y == 1 else 0 
-             for (x, y) in zip(predictions_binary, labels)]
-     return int(numpy.sum(tp))
+    return confusion_matrix(labels, predictions_binary)[1,1]
 
 
 @Metric('minimize')
 def false_positives(_, predictions_binary, labels, parameters):
-    fp = [1 if x == 1 and y == 0 else 0
-            for (x, y) in zip(predictions_binary, labels)]
-    return int(numpy.sum(fp))
+    return confusion_matrix(labels, predictions_binary)[0,1]
 
 
 @Metric('maximize')
 def true_negatives(_, predictions_binary, labels, parameters):
-    tn = [1 if x == 0 and y == 0 else 0
-            for (x, y) in zip(predictions_binary, labels)]
-    return int(numpy.sum(tn))
+    return confusion_matrix(labels, predictions_binary)[0,0]
 
 
 @Metric('minimize')
 def false_negatives(_, predictions_binary, labels, parameters):
-    fn = [1 if x == 0 and y == 1 else 0
-            for (x, y) in zip(predictions_binary, labels)]
-    return int(numpy.sum(fn))
+    return confusion_matrix(labels, predictions_binary)[1,0]
 
 
 @Metric('minimize')
