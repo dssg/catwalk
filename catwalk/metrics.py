@@ -86,22 +86,22 @@ def avg_precision(predictions_proba, _, labels, parameters):
 
 @Metric('maximize')
 def true_positives(_, predictions_binary, labels, parameters):
-    return confusion_matrix(labels, predictions_binary)[1,1]
+    return int(confusion_matrix(labels, predictions_binary)[1,1])
 
 
 @Metric('minimize')
 def false_positives(_, predictions_binary, labels, parameters):
-    return confusion_matrix(labels, predictions_binary)[0,1]
+    return int(confusion_matrix(labels, predictions_binary)[0,1])
 
 
 @Metric('maximize')
 def true_negatives(_, predictions_binary, labels, parameters):
-    return confusion_matrix(labels, predictions_binary)[0,0]
+    return int(confusion_matrix(labels, predictions_binary)[0,0])
 
 
 @Metric('minimize')
 def false_negatives(_, predictions_binary, labels, parameters):
-    return confusion_matrix(labels, predictions_binary)[1,0]
+    return int(confusion_matrix(labels, predictions_binary)[1,0])
 
 
 @Metric('minimize')
