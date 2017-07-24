@@ -91,12 +91,20 @@ class ModelEvaluator(object):
         self.db_engine = db_engine
         self.sort_seed = sort_seed or int(time.time())
         if custom_metrics:
-            for m in custom_metrics.values():
-                if not hasattr(m, 'greater_is_better'):
-                    raise ValueError("All metrics must have a greater_is_better parameter")
+            self._validate_metrics(custom_metrics)
             self.available_metrics.update(custom_metrics)
         if self.db_engine:
             self.sessionmaker = sessionmaker(bind=self.db_engine)
+
+    def _validate_metrics(
+        self,
+        custom_metrics
+    ):
+        for name, met in custom_metrics.items():
+            if not hasattr(met, 'greater_is_better'):
+                raise ValueError("Custom metric {} missing greater_is_better attribute".format(name))
+            elif not met.greater_is_better in (True, False):
+                raise ValueError("For custom metric {} greater_is_better must be boolean True or False".format(name))
 
     def _generate_evaluations(
         self,
