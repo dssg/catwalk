@@ -1,4 +1,3 @@
-import sklearn
 from sklearn.model_selection import ParameterGrid
 
 from sqlalchemy.orm import sessionmaker
@@ -19,9 +18,7 @@ from catwalk.utils import \
 
 from results_schema import Model, FeatureImportance
 
-from catwalk.feature_importances import \
-    _ad_hoc_feature_importances, \
-    get_feature_importances
+from catwalk.feature_importances import get_feature_importances
 
 class ModelTrainer(object):
     """Trains a series of classifiers using the same training set
@@ -148,29 +145,39 @@ class ModelTrainer(object):
             **misc_db_parameters
         )
         session.add(model)
-
-        feature_importance = get_feature_importances(trained_model)
-        temp_df = pandas.DataFrame({'feature_importance': feature_importance})
-        features_index = temp_df.index.tolist()
-        rankings_abs = temp_df['feature_importance'].rank(method='dense', ascending=False)
-        rankings_pct = temp_df['feature_importance'].rank(method='dense', ascending=False, pct=True)
-        for feature_index, importance, rank_abs, rank_pct in zip(
-            features_index,
-            feature_importance,
-            rankings_abs,
-            rankings_pct):
-            feature_importance = FeatureImportance(
-                model=model,
-                feature_importance=round(float(importance), 10),
-                feature=feature_names[feature_index],
-                rank_abs=int(rank_abs),
-                rank_pct=round(float(rank_pct), 10)
-            )
+        for feature_importance in self._feature_importance_db_objects(
+            trained_model,
+            model,
+            feature_names
+        ):
             session.add(feature_importance)
         session.commit()
         model_id = model.model_id
         session.close()
         return model_id
+
+    def _feature_importance_db_objects(self, trained_model, model_db_object, feature_names):
+        feature_importance = get_feature_importances(trained_model)
+        if np.isnan(feature_importance).any():
+            raise ValueError('NaN feature importance found')
+        temp_df = pandas.DataFrame({'feature_importance': feature_importance})
+        features_index = temp_df.index.tolist()
+        rankings_abs = temp_df['feature_importance'].rank(method='dense', ascending=False)
+        rankings_pct = temp_df['feature_importance'].rank(method='dense', ascending=False, pct=True)
+        db_objects = []
+        for feature_index, importance, rank_abs, rank_pct in zip(
+            features_index,
+            feature_importance,
+            rankings_abs,
+            rankings_pct):
+            db_objects.append(FeatureImportance(
+                model=model_db_object,
+                feature_importance=round(float(importance), 10),
+                feature=feature_names[feature_index],
+                rank_abs=int(rank_abs),
+                rank_pct=round(float(rank_pct), 10)
+            ))
+        return db_objects
 
     def _train_and_store_model(
         self,
@@ -303,7 +310,9 @@ class ModelTrainer(object):
             misc_db_parameters,
             matrix_store
         ):
-            yield self.process_train_task(**train_task)
+            model_id = self.process_train_task(**train_task)
+            if model_id:
+                yield model_id
 
     def train_models(
         self,
@@ -333,6 +342,7 @@ class ModelTrainer(object):
                 misc_db_parameters,
                 matrix_store
             )
+            if model_id is not None
         ]
 
     def process_train_task(
@@ -367,15 +377,25 @@ class ModelTrainer(object):
             reason = 'model metadata not found'
 
         logging.info('Training %s/%s: %s', class_path, parameters, reason)
-        model_id = self._train_and_store_model(
-            matrix_store,
-            class_path,
-            parameters,
-            model_hash,
-            model_store,
-            misc_db_parameters
-        )
-        return model_id
+        try:
+            model_id = self._train_and_store_model(
+                matrix_store,
+                class_path,
+                parameters,
+                model_hash,
+                model_store,
+                misc_db_parameters
+            )
+            return model_id
+        except ValueError as e:
+            warnings.warn(
+                'Unable to write model {}/{}/{} due to error: {}'.format(
+                    class_path,
+                    parameters,
+                    misc_db_parameters,
+                    e
+                )
+            )
 
     def generate_train_tasks(
         self,

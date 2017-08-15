@@ -1,4 +1,5 @@
 import boto3
+import numpy
 import pandas
 import pickle
 import testing.postgresql
@@ -7,6 +8,7 @@ import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 import unittest
 from unittest.mock import patch
+import pytest
 
 from moto import mock_s3
 from sqlalchemy import create_engine
@@ -325,3 +327,57 @@ class RetryTest(unittest.TestCase):
                 if self.new_server is not None:
                     self.new_server.stop()
             assert len(time_mock.mock_calls) == 1
+
+
+def test_model_trainer_nan_feature_importance():
+    with testing.postgresql.Postgresql() as postgresql:
+        engine = create_engine(postgresql.url())
+        ensure_db(engine)
+
+        grid_config = {
+            'sklearn.linear_model.LogisticRegression': {
+                'C': [0.00001, 0.0001],
+                'penalty': ['l1', 'l2'],
+                'random_state': [2193]
+            }
+        }
+
+        with mock_s3():
+            s3_conn = boto3.resource('s3')
+            s3_conn.create_bucket(Bucket='econ-dev')
+
+            # create training set
+            matrix = pandas.DataFrame.from_dict({
+                'entity_id': [1, 2],
+                'feature_one': [3, 4],
+                'feature_two': [5, 6],
+                'label': ['good', 'bad']
+            })
+            metadata = {
+                'beginning_of_time': datetime.date(2012, 12, 20),
+                'end_time': datetime.date(2016, 12, 20),
+                'label_name': 'label',
+                'label_window': '1y',
+                'metta-uuid': '1234',
+                'feature_names': ['ft1', 'ft2']
+            }
+            project_path = 'econ-dev/inspections'
+            model_storage_engine = S3ModelStorageEngine(s3_conn, project_path)
+            trainer = ModelTrainer(
+                project_path=project_path,
+                experiment_hash=None,
+                model_storage_engine=model_storage_engine,
+                db_engine=engine,
+                model_group_keys=['label_name', 'label_window']
+            )
+            matrix_store = InMemoryMatrixStore(matrix, metadata)
+            with patch('catwalk.model_trainers.get_feature_importances') as fi_mock:
+                fi_mock.return_value = [numpy.nan, numpy.nan]
+                with pytest.warns(UserWarning):
+                    model_ids = trainer.train_models(
+                        grid_config=grid_config,
+                        misc_db_parameters=dict(),
+                        matrix_store=matrix_store
+                    )
+
+                assert len(model_ids) == 0
