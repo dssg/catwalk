@@ -111,8 +111,8 @@ class InMemoryModelStorageEngine(ModelStorageEngine):
 
 
 class MatrixStore(object):
-    matrix = None
-    metadata = None
+    _matrix = None
+    _metadata = None
     _labels = None
 
     def labels(self):
@@ -166,6 +166,54 @@ class MettaMatrixStore(MatrixStore):
         with open(metadata_path) as f:
             self.metadata = yaml.load(f)
 
+class HDFMatrixStore(MatrixStore):
+    def __init__(self, matrix_path, metadata_path):
+        self.matrix_path = matrix_path
+        self.metadata_path = metadata_path
+        self._matrix = None
+        self._metadata = None
+
+    @property
+    def matrix(self):
+        if self._matrix is None:
+            self._load()
+        return self._matrix
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._load()
+        return self._metadata
+
+    @property
+    def empty(self):
+        if not os.path.isfile(self.matrix_path):
+            return True
+        else:
+            return self.head_of_matrix.empty
+
+    def columns(self, include_label=False):
+        head_of_matrix = self.get_head_of_matrix()
+        head_of_matrix.set_index(self.metadata['indices'], inplace=True)
+        columns = head_of_matrix.columns.tolist()
+        if include_label:
+            return columns
+        else:
+            return [
+                col for col in columns
+                if col != self.metadata['label_name']
+            ]
+
+    def get_head_of_matrix(self):
+        hdf = pandas.HDFStore(self.matrix_path)
+        key = hdf.keys()[0]
+        return hdf.select(key, start=0, stop=1)
+
+    def _load(self):
+        self._matrix = pandas.read_hdf(self.matrix_path, mode='r+')
+        with open(self.metadata_path) as f:
+            self._metadata = yaml.load(f)
+            self._matrix.set_index(self.metadata['indices'], inplace=True)
 
 class MettaCSVMatrixStore(MatrixStore):
     def __init__(self, matrix_path, metadata_path):
