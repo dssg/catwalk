@@ -190,7 +190,8 @@ class HDFMatrixStore(MatrixStore):
         if not os.path.isfile(self.matrix_path):
             return True
         else:
-            return self.head_of_matrix.empty
+            head_of_matrix = self.get_head_of_matrix()
+            return head_of_matrix.empty
 
     def columns(self, include_label=False):
         head_of_matrix = self.get_head_of_matrix()
