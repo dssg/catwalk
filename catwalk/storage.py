@@ -192,12 +192,6 @@ class MatrixStore(object):
                 ''', columnset ^ desired_columnset)
 
 
-class MettaMatrixStore(MatrixStore):
-    def __init__(self, matrix_path, metadata_path):
-        self.matrix = pandas.read_hdf(matrix_path)
-        with open(metadata_path) as f:
-            self.metadata = yaml.load(f)
-
 class HDFMatrixStore(MatrixStore):
     def __init__(self, matrix_path, metadata_path):
         self.matrix_path = matrix_path
@@ -215,6 +209,7 @@ class HDFMatrixStore(MatrixStore):
         with open(self.metadata_path) as f:
             self._metadata = yaml.load(f)
             self._matrix.set_index(self.metadata['indices'], inplace=True)
+
 
 class CSVMatrixStore(MatrixStore):
     def __init__(self, matrix_path, metadata_path):
