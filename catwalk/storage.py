@@ -115,6 +115,38 @@ class MatrixStore(object):
     _metadata = None
     _labels = None
 
+    @property
+    def matrix(self):
+        if self._matrix is None:
+            self._load()
+        return self._matrix
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._load()
+        return self._metadata
+
+    @property
+    def empty(self):
+        if not os.path.isfile(self.matrix_path):
+            return True
+        else:
+            head_of_matrix = self.get_head_of_matrix()
+            return head_of_matrix.empty
+
+    def columns(self, include_label=False):
+        head_of_matrix = self.get_head_of_matrix()
+        head_of_matrix.set_index(self.metadata['indices'], inplace=True)
+        columns = head_of_matrix.columns.tolist()
+        if include_label:
+            return columns
+        else:
+            return [
+                col for col in columns
+                if col != self.metadata['label_name']
+            ]
+
     def labels(self):
         if self._labels is not None:
             logging.debug('using stored labels')
@@ -173,38 +205,6 @@ class HDFMatrixStore(MatrixStore):
         self._matrix = None
         self._metadata = None
 
-    @property
-    def matrix(self):
-        if self._matrix is None:
-            self._load()
-        return self._matrix
-
-    @property
-    def metadata(self):
-        if self._metadata is None:
-            self._load()
-        return self._metadata
-
-    @property
-    def empty(self):
-        if not os.path.isfile(self.matrix_path):
-            return True
-        else:
-            head_of_matrix = self.get_head_of_matrix()
-            return head_of_matrix.empty
-
-    def columns(self, include_label=False):
-        head_of_matrix = self.get_head_of_matrix()
-        head_of_matrix.set_index(self.metadata['indices'], inplace=True)
-        columns = head_of_matrix.columns.tolist()
-        if include_label:
-            return columns
-        else:
-            return [
-                col for col in columns
-                if col != self.metadata['label_name']
-            ]
-
     def get_head_of_matrix(self):
         hdf = pandas.HDFStore(self.matrix_path)
         key = hdf.keys()[0]
@@ -223,36 +223,8 @@ class MettaCSVMatrixStore(MatrixStore):
         self._matrix = None
         self._metadata = None
 
-    @property
-    def matrix(self):
-        if self._matrix is None:
-            self._load()
-        return self._matrix
-
-    @property
-    def metadata(self):
-        if self._metadata is None:
-            self._load()
-        return self._metadata
-
-    @property
-    def empty(self):
-        if not os.path.isfile(self.matrix_path):
-            return True
-        else:
-            return pandas.read_csv(self.matrix_path, nrows=1).empty
-
-    def columns(self, include_label=False):
-        head_of_matrix = pandas.read_csv(self.matrix_path, nrows=1)
-        head_of_matrix.set_index(self.metadata['indices'], inplace=True)
-        columns = head_of_matrix.columns.tolist()
-        if include_label:
-            return columns
-        else:
-            return [
-                col for col in columns
-                if col != self.metadata['label_name']
-            ]
+    def get_head_of_matrix(self):
+        return pandas.read_csv(self.matrix_path, nrows=1)
 
     def _load(self):
         self._matrix = pandas.read_csv(self.matrix_path)
@@ -263,6 +235,6 @@ class MettaCSVMatrixStore(MatrixStore):
 
 class InMemoryMatrixStore(MatrixStore):
     def __init__(self, matrix, metadata, labels=None):
-        self.matrix = matrix
-        self.metadata = metadata
+        self._matrix = matrix
+        self._metadata = metadata
         self._labels = labels
