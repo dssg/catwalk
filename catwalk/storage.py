@@ -216,7 +216,7 @@ class HDFMatrixStore(MatrixStore):
             self._metadata = yaml.load(f)
             self._matrix.set_index(self.metadata['indices'], inplace=True)
 
-class MettaCSVMatrixStore(MatrixStore):
+class CSVMatrixStore(MatrixStore):
     def __init__(self, matrix_path, metadata_path):
         self.matrix_path = matrix_path
         self.metadata_path = metadata_path
