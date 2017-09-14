@@ -165,7 +165,7 @@ class MatrixStore(object):
         return self.metadata['metta-uuid']
 
     def columns(self, include_label=False):
-        columns = self.matrix.columns.tolist()
+        columns = self._matrix.columns.tolist()
         if include_label:
             return columns
         else:
@@ -197,11 +197,6 @@ class MatrixStore(object):
 
 
 class HDFMatrixStore(MatrixStore):
-    # def __init__(self, matrix=None, metadata=None):
-    #     super().__init__(self, matrix_path, metadata_path)
-    #     self._matrix = matrix
-    #     self._metadata = metadata
-
     def get_head_of_matrix(self):
         hdf = pandas.HDFStore(self.matrix_path)
         key = hdf.keys()[0]
@@ -215,9 +210,6 @@ class HDFMatrixStore(MatrixStore):
 
 
 class CSVMatrixStore(MatrixStore):
-    # def __init__(self):
-    #     super().__init__(self)
-
     def get_head_of_matrix(self):
         return pandas.read_csv(self.matrix_path, nrows=1)
 
@@ -241,3 +233,9 @@ class InMemoryMatrixStore(MatrixStore):
     def empty(self):
         head_of_matrix = self.get_head_of_matrix()
         return head_of_matrix.empty
+
+    @property
+    def matrix(self):
+        if self._metadata['indices'][0] in self._matrix.columns:
+            self._matrix.set_index(self._metadata['indices'], inplace=True)
+        return self._matrix
