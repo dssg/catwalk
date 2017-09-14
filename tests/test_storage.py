@@ -65,6 +65,8 @@ class MatrixStoreTest(unittest.TestCase):
             'indices': ['entity_id'],
         }
 
+        inmemory = InMemoryMatrixStore(matrix=df, metadata=metadata)
+
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpcsv = os.path.join(tmpdir, 'df.csv')
             tmpyaml = os.path.join(tmpdir, 'metadata.yaml')
@@ -76,61 +78,71 @@ class MatrixStoreTest(unittest.TestCase):
                 csv = CSVMatrixStore(matrix_path=tmpcsv, metadata_path=tmpyaml)
                 hdf = HDFMatrixStore(matrix_path=tmphdf, metadata_path=tmpyaml)
 
-                assert csv.matrix.to_dict() == df.to_dict()
-                assert hdf.matrix.to_dict() == df.to_dict()
+                assert csv.matrix.to_dict() == inmemory.matrix.to_dict()
+                assert hdf.matrix.to_dict() == inmemory.matrix.to_dict()
+                assert csv.metadata == inmemory.metadata
+                assert hdf.metadata == inmemory.metadata
 
-        inmemory = InMemoryMatrixStore(matrix=df, metadata=metadata)
-
-        matrix_store = inmemory #[inmemory, hdf, csv]
+        matrix_store = [inmemory, hdf, csv]
         return matrix_store
 
     def test_MatrixStore_resort_columns(self):
-        result = self.matrix_store().\
-            matrix_with_sorted_columns(
-                ['entity_id', 'm_feature', 'k_feature']
-            )\
-            .values\
-            .tolist()
-        expected = [
-            [1, 0.4, 0.5],
-            [2, 0.5, 0.4]
-        ]
-        self.assertEqual(expected, result)
+        matrix_store_list = self.matrix_store()
+        for matrix_store in matrix_store_list:
+            result = matrix_store.\
+                matrix_with_sorted_columns(
+                    ['m_feature', 'k_feature']
+                )\
+                .values\
+                .tolist()
+            expected = [
+                [0.4, 0.5],
+                [0.5, 0.4]
+            ]
+            self.assertEqual(expected, result)
 
     def test_MatrixStore_already_sorted_columns(self):
-        result = self.matrix_store().\
-            matrix_with_sorted_columns(
-                ['entity_id', 'k_feature', 'm_feature']
-            )\
-            .values\
-            .tolist()
-        expected = [
-            [1, 0.5, 0.4],
-            [2, 0.4, 0.5]
-        ]
-        self.assertEqual(expected, result)
+        matrix_store_list = self.matrix_store()
+        for matrix_store in matrix_store_list:
+            result = matrix_store.\
+                matrix_with_sorted_columns(
+                    ['k_feature', 'm_feature']
+                )\
+                .values\
+                .tolist()
+            expected = [
+                [0.5, 0.4],
+                [0.4, 0.5]
+            ]
+            self.assertEqual(expected, result)
 
     def test_MatrixStore_sorted_columns_subset(self):
         with self.assertRaises(ValueError):
-            self.matrix_store().\
-                matrix_with_sorted_columns(['entity_id', 'm_feature'])\
-                .values\
-                .tolist()
+            matrix_store_list = self.matrix_store()
+            for matrix_store in matrix_store_list:
+                matrix_store.\
+                    matrix_with_sorted_columns(['m_feature'])\
+                    .values\
+                    .tolist()
 
     def test_MatrixStore_sorted_columns_superset(self):
         with self.assertRaises(ValueError):
-            self.matrix_store().\
-                matrix_with_sorted_columns(
-                    ['entity_id', 'k_feature', 'l_feature', 'm_feature']
-                )\
-                .values\
-                .tolist()
+            matrix_store_list = self.matrix_store()
+            for matrix_store in matrix_store_list:
+                matrix_store.\
+                    matrix_with_sorted_columns(
+                        ['k_feature', 'l_feature', 'm_feature']
+                    )\
+                    .values\
+                    .tolist()
 
     def test_MatrixStore_sorted_columns_mismatch(self):
         with self.assertRaises(ValueError):
-            self.matrix_store().\
-                matrix_with_sorted_columns(
-                    ['entity_id', 'k_feature', 'l_feature']
-                )\
-                .values\
-                .tolist()
+            matrix_store_list = self.matrix_store()
+            for matrix_store in matrix_store_list:
+                matrix_store.\
+                    matrix_with_sorted_columns(
+                        ['k_feature', 'l_feature']
+                    )\
+                    .values\
+                    .tolist()
