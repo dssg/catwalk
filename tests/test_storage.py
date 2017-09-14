@@ -80,8 +80,19 @@ class MatrixStoreTest(unittest.TestCase):
 
                 assert csv.matrix.to_dict() == inmemory.matrix.to_dict()
                 assert hdf.matrix.to_dict() == inmemory.matrix.to_dict()
+
                 assert csv.metadata == inmemory.metadata
                 assert hdf.metadata == inmemory.metadata
+
+                assert csv.head_of_matrix.to_dict() == inmemory.head_of_matrix.to_dict()
+                assert hdf.head_of_matrix.to_dict() == inmemory.head_of_matrix.to_dict()
+
+                assert csv.empty == inmemory.empty
+                assert hdf.empty == inmemory.empty
+
+                assert csv.labels().to_dict() == inmemory.labels().to_dict()
+                assert hdf.labels().to_dict() == inmemory.labels().to_dict()
+
 
         matrix_store = [inmemory, hdf, csv]
         return matrix_store

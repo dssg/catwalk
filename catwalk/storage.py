@@ -118,6 +118,7 @@ class MatrixStore(object):
         self.metadata_path = metadata_path
         self._matrix = None
         self._metadata = None
+        self._head_of_matrix = None
 
     @property
     def matrix(self):
@@ -132,16 +133,21 @@ class MatrixStore(object):
         return self._metadata
 
     @property
+    def head_of_matrix(self):
+        if self._head_of_matrix is None:
+            self._get_head_of_matrix()
+        return self._head_of_matrix
+
+    @property
     def empty(self):
         if not os.path.isfile(self.matrix_path):
             return True
         else:
-            head_of_matrix = self.get_head_of_matrix()
+            head_of_matrix = self.head_of_matrix
             return head_of_matrix.empty
 
     def columns(self, include_label=False):
-        head_of_matrix = self.get_head_of_matrix()
-        head_of_matrix.set_index(self.metadata['indices'], inplace=True)
+        head_of_matrix = self.head_of_matrix
         columns = head_of_matrix.columns.tolist()
         if include_label:
             return columns
@@ -164,15 +170,6 @@ class MatrixStore(object):
     def uuid(self):
         return self.metadata['metta-uuid']
 
-    def columns(self, include_label=False):
-        columns = self._matrix.columns.tolist()
-        if include_label:
-            return columns
-        else:
-            return [
-                col for col in columns
-                if col != self.metadata['label_name']
-            ]
 
     def matrix_with_sorted_columns(self, columns):
         columnset = set(self.columns())
@@ -197,10 +194,16 @@ class MatrixStore(object):
 
 
 class HDFMatrixStore(MatrixStore):
-    def get_head_of_matrix(self):
-        hdf = pandas.HDFStore(self.matrix_path)
-        key = hdf.keys()[0]
-        return hdf.select(key, start=0, stop=1)
+    def _get_head_of_matrix(self):
+        try:
+            hdf = pandas.HDFStore(self.matrix_path)
+            key = hdf.keys()[0]
+            head_of_matrix = hdf.select(key, start=0, stop=1)
+            head_of_matrix.set_index(self.metadata['indices'], inplace=True)
+            self._head_of_matrix = head_of_matrix
+        except pandas.error.EmptyDataError:
+            self._head_of_matrix = None
+
 
     def _load(self):
         self._matrix = pandas.read_hdf(self.matrix_path, mode='r+')
@@ -210,8 +213,13 @@ class HDFMatrixStore(MatrixStore):
 
 
 class CSVMatrixStore(MatrixStore):
-    def get_head_of_matrix(self):
-        return pandas.read_csv(self.matrix_path, nrows=1)
+    def _get_head_of_matrix(self):
+        try:
+            head_of_matrix = pandas.read_csv(self.matrix_path, nrows=1)
+            head_of_matrix.set_index(self.metadata['indices'], inplace=True)
+            self._head_of_matrix = head_of_matrix
+        except pandas.error.EmptyDataError:
+            self._head_of_matrix = None
 
     def _load(self):
         self._matrix = pandas.read_csv(self.matrix_path)
@@ -225,13 +233,14 @@ class InMemoryMatrixStore(MatrixStore):
         self._matrix = matrix
         self._metadata = metadata
         self._labels = labels
+        self._head_of_matrix = None
 
-    def get_head_of_matrix(self):
-        return self.matrix.iloc[0]
+    def _get_head_of_matrix(self):
+        self._head_of_matrix = self.matrix.head(n=1)
 
     @property
     def empty(self):
-        head_of_matrix = self.get_head_of_matrix()
+        head_of_matrix = self.head_of_matrix
         return head_of_matrix.empty
 
     @property
