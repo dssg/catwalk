@@ -111,9 +111,13 @@ class InMemoryModelStorageEngine(ModelStorageEngine):
 
 
 class MatrixStore(object):
-    _matrix = None
-    _metadata = None
     _labels = None
+
+    def __init__(self, matrix_path=None, metadata_path=None):
+        self.matrix_path = matrix_path
+        self.metadata_path = metadata_path
+        self._matrix = None
+        self._metadata = None
 
     @property
     def matrix(self):
@@ -193,11 +197,10 @@ class MatrixStore(object):
 
 
 class HDFMatrixStore(MatrixStore):
-    def __init__(self, matrix_path, metadata_path):
-        self.matrix_path = matrix_path
-        self.metadata_path = metadata_path
-        self._matrix = None
-        self._metadata = None
+    # def __init__(self, matrix=None, metadata=None):
+    #     super().__init__(self, matrix_path, metadata_path)
+    #     self._matrix = matrix
+    #     self._metadata = metadata
 
     def get_head_of_matrix(self):
         hdf = pandas.HDFStore(self.matrix_path)
@@ -208,15 +211,12 @@ class HDFMatrixStore(MatrixStore):
         self._matrix = pandas.read_hdf(self.matrix_path, mode='r+')
         with open(self.metadata_path) as f:
             self._metadata = yaml.load(f)
-            self._matrix.set_index(self.metadata['indices'], inplace=True)
+        self._matrix.set_index(self.metadata['indices'], inplace=True)
 
 
 class CSVMatrixStore(MatrixStore):
-    def __init__(self, matrix_path, metadata_path):
-        self.matrix_path = matrix_path
-        self.metadata_path = metadata_path
-        self._matrix = None
-        self._metadata = None
+    # def __init__(self):
+    #     super().__init__(self)
 
     def get_head_of_matrix(self):
         return pandas.read_csv(self.matrix_path, nrows=1)
@@ -233,3 +233,11 @@ class InMemoryMatrixStore(MatrixStore):
         self._matrix = matrix
         self._metadata = metadata
         self._labels = labels
+
+    def get_head_of_matrix(self):
+        return self.matrix.iloc[0]
+
+    @property
+    def empty(self):
+        head_of_matrix = self.get_head_of_matrix()
+        return head_of_matrix.empty

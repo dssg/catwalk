@@ -1,4 +1,4 @@
-from catwalk.storage import S3Store, FSStore, MemoryStore, InMemoryMatrixStore
+from catwalk.storage import S3Store, FSStore, MemoryStore, InMemoryMatrixStore, HDFMatrixStore, CSVMatrixStore
 from moto import mock_s3
 import tempfile
 import boto3
@@ -6,7 +6,7 @@ import os
 import pandas
 from collections import OrderedDict
 import unittest
-
+import yaml
 
 class SomeClass(object):
     def __init__(self, val):
@@ -64,7 +64,24 @@ class MatrixStoreTest(unittest.TestCase):
             'label_name': 'label',
             'indices': ['entity_id'],
         }
-        matrix_store = InMemoryMatrixStore(matrix=df, metadata=metadata)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpcsv = os.path.join(tmpdir, 'df.csv')
+            tmpyaml = os.path.join(tmpdir, 'metadata.yaml')
+            tmphdf = os.path.join(tmpdir, 'df.h5')
+            with open(tmpyaml, 'w') as outfile:
+                yaml.dump(metadata, outfile, default_flow_style=False)
+                df.to_csv(tmpcsv, index=False)
+                df.to_hdf(tmphdf, 'test')
+                csv = CSVMatrixStore(matrix_path=tmpcsv, metadata_path=tmpyaml)
+                hdf = HDFMatrixStore(matrix_path=tmphdf, metadata_path=tmpyaml)
+
+                assert csv.matrix.to_dict() == df.to_dict()
+                assert hdf.matrix.to_dict() == df.to_dict()
+
+        inmemory = InMemoryMatrixStore(matrix=df, metadata=metadata)
+
+        matrix_store = inmemory #[inmemory, hdf, csv]
         return matrix_store
 
     def test_MatrixStore_resort_columns(self):
