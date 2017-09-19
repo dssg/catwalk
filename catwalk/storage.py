@@ -4,7 +4,7 @@ import pickle
 import pandas
 import yaml
 import logging
-
+import smart_open
 
 class Store(object):
     def __init__(self, path):
@@ -218,12 +218,43 @@ class HDFMatrixStore(MatrixStore):
         except pandas.error.EmptyDataError:
             self._head_of_matrix = None
 
-
     def _load(self):
-        self._matrix = pandas.read_hdf(self.matrix_path, mode='r+')
-        with open(self.metadata_path) as f:
-            self._metadata = yaml.load(f)
-        self._matrix.set_index(self.metadata['indices'], inplace=True)
+        with smart_open.smart_open(self.matrix_path, "rb") as f:
+            self._matrix = self._read_hdf_from_buffer(f)
+        with smart_open.smart_open(self.metadata_path, "rb") as f:
+            y = []
+            for line in f:
+                y.append(line.decode())
+        self._metadata = yaml.load("".join(y).encode('utf-8'))
+        try:
+            self._matrix.set_index(self._metadata['indices'], inplace=True)
+        except:
+            pass
+
+    def _read_hdf_from_buffer(self, buffer):
+        with pandas.HDFStore(
+                "data.h5",
+                mode="r",
+                driver="H5FD_CORE",
+                driver_core_backing_store=0,
+                driver_core_image=buffer.read()) as store:
+            return store[store.keys()[0]]
+
+    def _write_hdf_to_buffer(self, df):
+        with pandas.HDFStore(
+                "data.h5",
+                mode="a",
+                driver="H5FD_CORE",
+                driver_core_backing_store=0) as out:
+            out["/matrix"] = df
+            return out._handle.get_file_image()
+
+    def save(self, project_path, name):
+        with smart_open.smart_open(os.path.join(project_path, name + ".h5"), "wb") as f:
+            f.write(self._write_hdf_to_buffer(self.matrix))
+
+        with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
+            yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class CSVMatrixStore(MatrixStore):
@@ -236,10 +267,20 @@ class CSVMatrixStore(MatrixStore):
             self._head_of_matrix = None
 
     def _load(self):
-        self._matrix = pandas.read_csv(self.matrix_path)
-        with open(self.metadata_path) as f:
-            self._metadata = yaml.load(f)
+        with smart_open.smart_open(self.matrix_path, "r") as f:
+            self._matrix = pandas.read_csv(f)
+        with smart_open.smart_open(self.metadata_path, "rb") as f:
+            y = []
+            for line in f:
+                y.append(line.decode())
+        self._metadata = yaml.load("".join(y).encode('utf-8'))
         self._matrix.set_index(self.metadata['indices'], inplace=True)
+
+    def save(self, project_path, name):
+        with smart_open.smart_open(os.path.join(project_path, name + ".csv"), "w") as f:
+            self.matrix.to_csv(f)
+        with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
+            yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class InMemoryMatrixStore(MatrixStore):
@@ -262,3 +303,6 @@ class InMemoryMatrixStore(MatrixStore):
         if self._metadata['indices'][0] in self._matrix.columns:
             self._matrix.set_index(self._metadata['indices'], inplace=True)
         return self._matrix
+
+    def save(self, project_path, name):
+        return None
