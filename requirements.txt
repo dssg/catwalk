@@ -14,3 +14,5 @@ retrying
 results-schema>=1.2
 metta-data
 smart_open
+moto
+boto
