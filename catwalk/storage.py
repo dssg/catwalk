@@ -206,6 +206,16 @@ class MatrixStore(object):
                     Columnset and desired columnset mismatch. Unique items: %s
                 ''', columnset ^ desired_columnset)
 
+    def save_yaml(self, df, project_path, name):
+        with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
+            yaml.dump(df, f, encoding='utf-8')
+
+    def load_yaml(self, metadata_path):
+        with smart_open.smart_open(metadata_path, "rb") as f:
+            y = []
+            for line in f:
+                y.append(line.decode())
+        return yaml.load("".join(y).encode('utf-8'))
 
 class HDFMatrixStore(MatrixStore):
     def _get_head_of_matrix(self):
@@ -221,11 +231,12 @@ class HDFMatrixStore(MatrixStore):
     def _load(self):
         with smart_open.smart_open(self.matrix_path, "rb") as f:
             self._matrix = self._read_hdf_from_buffer(f)
-        with smart_open.smart_open(self.metadata_path, "rb") as f:
-            y = []
-            for line in f:
-                y.append(line.decode())
-        self._metadata = yaml.load("".join(y).encode('utf-8'))
+        # with smart_open.smart_open(self.metadata_path, "rb") as f:
+        #     y = []
+        #     for line in f:
+        #         y.append(line.decode())
+        #self._metadata = yaml.load("".join(y).encode('utf-8'))
+        self._metadata = self.load_yaml(self.metadata_path)
         try:
             self._matrix.set_index(self._metadata['indices'], inplace=True)
         except:
@@ -252,9 +263,9 @@ class HDFMatrixStore(MatrixStore):
     def save(self, project_path, name):
         with smart_open.smart_open(os.path.join(project_path, name + ".h5"), "wb") as f:
             f.write(self._write_hdf_to_buffer(self.matrix))
-
-        with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
-            yaml.dump(self.metadata, f, encoding='utf-8')
+        self.save_yaml(self.metadata, project_path, name)
+        # with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
+        #     yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class CSVMatrixStore(MatrixStore):
@@ -269,18 +280,20 @@ class CSVMatrixStore(MatrixStore):
     def _load(self):
         with smart_open.smart_open(self.matrix_path, "r") as f:
             self._matrix = pandas.read_csv(f)
-        with smart_open.smart_open(self.metadata_path, "rb") as f:
-            y = []
-            for line in f:
-                y.append(line.decode())
-        self._metadata = yaml.load("".join(y).encode('utf-8'))
+        # with smart_open.smart_open(self.metadata_path, "rb") as f:
+        #     y = []
+        #     for line in f:
+        #         y.append(line.decode())
+        # self._metadata = yaml.load("".join(y).encode('utf-8'))
+        self._metadata = self.load_yaml(self.metadata_path)
         self._matrix.set_index(self.metadata['indices'], inplace=True)
 
     def save(self, project_path, name):
         with smart_open.smart_open(os.path.join(project_path, name + ".csv"), "w") as f:
             self.matrix.to_csv(f)
-        with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
-            yaml.dump(self.metadata, f, encoding='utf-8')
+        self.save_yaml(self.metadata, project_path, name)
+        # with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
+        #     yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class InMemoryMatrixStore(MatrixStore):
