@@ -76,7 +76,7 @@ class MatrixStoreTest(unittest.TestCase):
             with open(tmpyaml, 'w') as outfile:
                 yaml.dump(metadata, outfile, default_flow_style=False)
                 df.to_csv(tmpcsv, index=False)
-                df.to_hdf(tmphdf, 'test')
+                df.to_hdf(tmphdf, 'matrix')
                 csv = CSVMatrixStore(matrix_path=tmpcsv, metadata_path=tmpyaml)
                 hdf = HDFMatrixStore(matrix_path=tmphdf, metadata_path=tmpyaml)
 
@@ -201,7 +201,6 @@ class MatrixStoreTest(unittest.TestCase):
 
             # HDF
             hdf = HDFMatrixStore(matrix_path='s3://fake-matrix-bucket/test.h5', metadata_path='s3://fake-matrix-bucket/test.yaml')
-
             # CSV
             csv = CSVMatrixStore(matrix_path='s3://fake-matrix-bucket/test.csv', metadata_path='s3://fake-matrix-bucket/test.yaml')
 

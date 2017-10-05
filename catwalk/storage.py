@@ -231,11 +231,6 @@ class HDFMatrixStore(MatrixStore):
     def _load(self):
         with smart_open.smart_open(self.matrix_path, "rb") as f:
             self._matrix = self._read_hdf_from_buffer(f)
-        # with smart_open.smart_open(self.metadata_path, "rb") as f:
-        #     y = []
-        #     for line in f:
-        #         y.append(line.decode())
-        #self._metadata = yaml.load("".join(y).encode('utf-8'))
         self._metadata = self.load_yaml(self.metadata_path)
         try:
             self._matrix.set_index(self._metadata['indices'], inplace=True)
@@ -249,23 +244,30 @@ class HDFMatrixStore(MatrixStore):
                 driver="H5FD_CORE",
                 driver_core_backing_store=0,
                 driver_core_image=buffer.read()) as store:
-            return store[store.keys()[0]]
+
+            if len(store.keys()) > 1:
+                raise Exception('Ambiguous matrix store. More than one dataframe in the hdf file.')
+
+            try:
+                return store["matrix"]
+
+            except KeyError:
+                print("The hdf file should contain one and only key, matrix.")
+                return store[store.keys()[0]]
 
     def _write_hdf_to_buffer(self, df):
         with pandas.HDFStore(
                 "data.h5",
-                mode="a",
+                mode="w",
                 driver="H5FD_CORE",
                 driver_core_backing_store=0) as out:
-            out["/matrix"] = df
+            out["matrix"] = df
             return out._handle.get_file_image()
 
     def save(self, project_path, name):
         with smart_open.smart_open(os.path.join(project_path, name + ".h5"), "wb") as f:
             f.write(self._write_hdf_to_buffer(self.matrix))
         self.save_yaml(self.metadata, project_path, name)
-        # with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
-        #     yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class CSVMatrixStore(MatrixStore):
@@ -280,11 +282,6 @@ class CSVMatrixStore(MatrixStore):
     def _load(self):
         with smart_open.smart_open(self.matrix_path, "r") as f:
             self._matrix = pandas.read_csv(f)
-        # with smart_open.smart_open(self.metadata_path, "rb") as f:
-        #     y = []
-        #     for line in f:
-        #         y.append(line.decode())
-        # self._metadata = yaml.load("".join(y).encode('utf-8'))
         self._metadata = self.load_yaml(self.metadata_path)
         self._matrix.set_index(self.metadata['indices'], inplace=True)
 
@@ -292,8 +289,6 @@ class CSVMatrixStore(MatrixStore):
         with smart_open.smart_open(os.path.join(project_path, name + ".csv"), "w") as f:
             self.matrix.to_csv(f)
         self.save_yaml(self.metadata, project_path, name)
-        # with smart_open.smart_open(os.path.join(project_path, name + ".yaml"), "wb") as f:
-        #     yaml.dump(self.metadata, f, encoding='utf-8')
 
 
 class InMemoryMatrixStore(MatrixStore):
