@@ -13,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 import sqlalchemy
 import csv
 import postgres_copy
+from itertools import product
+import re
 
 
 def split_s3_path(path):
@@ -199,3 +201,61 @@ def save_db_objects(db_engine, db_objects):
             ])
         f.seek(0)
         postgres_copy.copy_from(f, type(db_objects[0]), db_engine, format='csv')
+
+
+# Two methods for identifying and grouping categorical columns
+def bag_of_cats(feature_config):
+    """
+    Parse a feature config to create regex patterns to match
+    categorical columns. Note that this assumes there's no
+    column name truncation
+    """
+    cats_regex = []
+    for fg in feature_config:
+        prefix = fg['prefix']
+        groups = fg['groups']
+        intervals = fg['intervals']
+        cats = fg.get('categoricals', [])
+        for cat in cats:
+            col = cat['column']
+            metrics = cat['metrics']
+
+            for group, interval, metric in product(
+                groups, intervals, metrics
+                ):
+                cats_regex.append(r'^%s_%s_%s_%s_(.*)_%s$' % (
+                    prefix, group, interval, col, metric
+                ))
+
+    return cats_regex
+
+
+# assumes no column name truncation!!
+def find_cats(matrix_cols, cats_regex, exclude_cols=None):
+    """
+    Assign matrix columns (by their numerical indices) to groups
+    of categoricals based on matching to a regex pattern
+    """
+
+    # be sure we exclude entity id, date, and label
+    if exclude_cols is None:
+        exclude_cols = ['entity_id', 'as_of_date', 'outcome']
+    feature_cols = [c for c in matrix_cols if c not in exclude_cols]
+
+    # We want the sets of numberical indices of columns that match our
+    # categorical patterns, so loop trough the column names then through
+    # the patterns, checking each one for a match. Here, `cats_dict`
+    # will act as a collector to hold the matches associated with each
+    # pattern. Note that if a column matches two patterns, it will get 
+    # assigned to the first categorical that matches, though this 
+    # shouldn't happen if the regex is matching the full string...
+    cats_dict = {r:[] for r in cats_regex}
+    for i, fc in enumerate(feature_cols):
+        for regex in cats_regex:
+            m = re.match(regex, fc)
+            if m is not None:
+                cats_dict[regex].append(i)
+                break
+
+    # collapse the dict into a list of lists to return
+    return [v for v in cats_dict.values() if len(v) > 0]
