@@ -153,7 +153,7 @@ class SubsetWithCategoricals(BaseEstimator, TransformerMixin):
 
         # this will be a mixed list of column indices for non-categoricals
         # and lists of indices for categorics
-        distinct_features = features + self.categoricals
+        distinct_features = list(non_cats) + self.categoricals
 
         self.max_features_ = self._infer_max_features(len(distinct_features))
         if self.max_features_ > len(distinct_features):
