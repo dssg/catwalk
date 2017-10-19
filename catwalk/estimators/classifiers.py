@@ -102,7 +102,7 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
                  max_leaf_nodes=None,
-                 min_impurity_split=None,
+                 min_impurity_split=1e-07,
                  class_weight=None,
                  presort=False):
 
@@ -187,7 +187,7 @@ class CatInAForestClassifier(BaggingClassifier):
         n_estimators=10, max_samples=1.0, bootstrap=True, oob_score=False, 
         warm_start=False, n_jobs=1, verbose=0, criterion="gini", splitter="best", 
         max_depth=None, min_samples_split=2, min_samples_leaf=1, 
-        min_weight_fraction_leaf=0., max_leaf_nodes=None, min_impurity_split=None, 
+        min_weight_fraction_leaf=0., max_leaf_nodes=None, min_impurity_split=1e-07, 
         class_weight=None, presort=False):
 
         # set up the base estimator as a CatInATreeClassifier()
