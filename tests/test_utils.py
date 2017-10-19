@@ -1,12 +1,14 @@
 from catwalk.utils import filename_friendly_hash, \
     save_experiment_and_get_hash, \
-    sort_predictions_and_labels
+    sort_predictions_and_labels, \
+    bag_of_cats, find_cats
 from catwalk.db import ensure_db
 from sqlalchemy import create_engine
 import testing.postgresql
 import datetime
 import logging
 import re
+import pandas as pd
 
 
 def test_filename_friendly_hash():
@@ -104,3 +106,73 @@ def test_sort_predictions_and_labels():
     )
     assert sorted_predictions == (0.6, 0.5, 0.5, 0.4)
     assert sorted_labels == (True, False, True, False)
+
+def test_bag_of_cats():
+    feature_config = [
+        {
+            'prefix': 'first',
+            'aggregates': [
+                {'quantity': 'a1', 'metrics': ['min', 'max']}
+            ],
+            'categoricals': [
+                {'column': 'c1', 'choices': ['top', 'bottom', 'charm', 'strange'], 'metrics': ['min']},
+                {'column': 'c2', 'choices': ['up', 'down'], 'metrics': ['sum', 'max']}
+            ],
+            'intervals': ['1y', '5y'],
+            'groups': ['entity_id']
+        },
+        {
+            'prefix': 'second',
+            'categoricals': [
+                {'column': 'c3', 'choices': ['one', 'two'], 'metrics': ['sum']},
+                {'column': 'c4', 'choices': ['three', 'four'], 'metrics': ['max']}
+            ],
+            'intervals': ['1y', '10y'],
+            'groups': ['entity_id']
+        },
+        {
+            'prefix': 'third',
+            'aggregates': [
+                {'quantity': 'a2', 'metrics': ['min', 'max']}
+            ],
+            'intervals': ['6month'],
+            'groups': ['entity_id']
+        }
+    ]
+
+    cat_regex = set(bag_of_cats(feature_config))
+
+    assert cat_regex == set([
+        r'^first_entity_id_1y_c1_(.*)_min$', r'^first_entity_id_5y_c1_(.*)_min$', 
+        r'^first_entity_id_1y_c2_(.*)_sum$', r'^first_entity_id_1y_c2_(.*)_max$', 
+        r'^first_entity_id_5y_c2_(.*)_sum$', r'^first_entity_id_5y_c2_(.*)_max$', 
+        r'^second_entity_id_1y_c3_(.*)_sum$', r'^second_entity_id_10y_c3_(.*)_sum$', 
+        r'^second_entity_id_1y_c4_(.*)_max$', r'^second_entity_id_10y_c4_(.*)_max$'
+    ])
+
+def test_find_cats():
+    cat_regex = [r'^first_entity_id_1y_c1_(.*)_min$', r'^second_entity_id_10y_c3_(.*)_sum$']
+    df = pd.DataFrame({
+        'entity_id': [1,2,3,4],
+        'as_of_date': ['2012-01-01','2012-01-01','2012-01-01','2012-01-01'],
+        'first_entity_id_1y_c1_top_min': [0,1,0,0],
+        'first_entity_id_1y_c1_bottom_min': [1,0,0,0],
+        'first_entity_id_1y_c1__NULL_min': [0,0,1,0],
+        'first_entity_id_1y_a1_sum': [12,7,0,2],
+        'first_entity_id_1y_a2_max': [3,1,4,1],
+        'second_entity_id_10y_a3_sum': [5,9,2,6],
+        'second_entity_id_10y_c3_one_sum': [1,1,0,1],
+        'second_entity_id_10y_c3_two_sum': [0,0,1,0],
+        'outcome': [0,1,0,0]
+        })
+    # ensure column order
+    df = df[['entity_id', 'as_of_date', 'first_entity_id_1y_c1_top_min', 
+             'first_entity_id_1y_c1_bottom_min', 'first_entity_id_1y_c1__NULL_min',
+             'first_entity_id_1y_a1_sum', 'first_entity_id_1y_a2_max',
+             'second_entity_id_10y_a3_sum', 'second_entity_id_10y_c3_one_sum',
+             'second_entity_id_10y_c3_two_sum', 'outcome'
+    ]]
+
+    cat_cols = find_cats(df.columns.values, cat_regex)
+
+    assert cat_cols == [[0, 1, 2], [6, 7]]
