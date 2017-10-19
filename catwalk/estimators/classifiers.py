@@ -102,7 +102,6 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
                  max_leaf_nodes=None,
-                 min_impurity_decrease=0.,
                  min_impurity_split=None,
                  class_weight=None,
                  presort=False):
@@ -117,7 +116,6 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
         self.max_features = max_features
         self.random_state = random_state
         self.max_leaf_nodes = max_leaf_nodes
-        self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
         self.class_weight = class_weight
         self.presort = presort
@@ -127,8 +125,7 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
             criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
             max_features=1.0, random_state=random_state, max_leaf_nodes=max_leaf_nodes,
-            min_impurity_decrease=min_impurity_decrease, min_impurity_split=min_impurity_split,
-            class_weight=class_weight, presort=presort
+            min_impurity_split=min_impurity_split, class_weight=class_weight, presort=presort
         )
 
         self.pipeline = Pipeline([
@@ -190,8 +187,8 @@ class CatInAForestClassifier(BaggingClassifier):
         n_estimators=10, max_samples=1.0, bootstrap=True, oob_score=False, 
         warm_start=False, n_jobs=1, verbose=0, criterion="gini", splitter="best", 
         max_depth=None, min_samples_split=2, min_samples_leaf=1, 
-        min_weight_fraction_leaf=0., max_leaf_nodes=None, min_impurity_decrease=0., 
-        min_impurity_split=None, class_weight=None, presort=False):
+        min_weight_fraction_leaf=0., max_leaf_nodes=None, min_impurity_split=None, 
+        class_weight=None, presort=False):
 
         # set up the base estimator as a CatInATreeClassifier()
         self.base_estimator = CatInATreeClassifier(
@@ -199,8 +196,7 @@ class CatInAForestClassifier(BaggingClassifier):
             criterion=criterion, splitter=splitter, max_depth=max_depth, 
             min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, 
             min_weight_fraction_leaf=min_weight_fraction_leaf, max_leaf_nodes=max_leaf_nodes, 
-            min_impurity_decrease=min_impurity_decrease, min_impurity_split=min_impurity_split,
-            class_weight=class_weight, presort=presort
+            min_impurity_split=min_impurity_split, class_weight=class_weight, presort=presort
             )
 
         # Call the super-class's constructor
@@ -233,7 +229,6 @@ class CatInAForestClassifier(BaggingClassifier):
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_leaf_nodes = max_leaf_nodes
-        self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
         self.class_weight = class_weight
         self.presort = presort
