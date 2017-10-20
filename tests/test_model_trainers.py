@@ -183,11 +183,7 @@ def test_model_trainer():
 
 
 def test_model_trainer_categoricals():
-    # DELETE ME
-    pgpath = '/usr/lib/postgresql/9.6/bin/'
-    # DELETE ME
-    with testing.postgresql.Postgresql(initdb=pgpath+'initdb', postgres=pgpath+'postgres') as postgresql:
-#    with testing.postgresql.Postgresql() as postgresql:
+    with testing.postgresql.Postgresql() as postgresql:
         engine = create_engine(postgresql.url())
         ensure_db(engine)
 
@@ -296,7 +292,7 @@ def test_model_trainer_categoricals():
                 for cache_key in cache_keys
             ]
 
-            assert model_pickles[0].categoricals == [[0, 1, 2], [6, 7]]
+            assert sorted([sorted(c) for c in model_pickles[0].categoricals]) == [[0, 1, 2], [6, 7]]
 
 
 def test_n_jobs_not_new_model():
