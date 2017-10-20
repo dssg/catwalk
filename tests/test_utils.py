@@ -175,4 +175,4 @@ def test_find_cats():
 
     cat_cols = find_cats(df.columns.values, cat_regex)
 
-    assert cat_cols == [[0, 1, 2], [6, 7]]
+    assert sorted([sorted(c) for c in cat_cols]) == [[0, 1, 2], [6, 7]]
