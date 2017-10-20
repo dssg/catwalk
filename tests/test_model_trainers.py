@@ -182,6 +182,119 @@ def test_model_trainer():
                 sorted([model_id for model_id in new_model_ids])
 
 
+def test_model_trainer_categoricals():
+    with testing.postgresql.Postgresql() as postgresql:
+        engine = create_engine(postgresql.url())
+        ensure_db(engine)
+
+        grid_config = {
+            'catwalk.estimators.classifiers.CatInAForestClassifier': {
+                'max_features_tree': [3],
+                'n_estimators': [3],
+                'random_state': [2193]
+            }
+        }
+
+        with mock_s3():
+            s3_conn = boto3.resource('s3')
+            s3_conn.create_bucket(Bucket='econ-dev')
+
+            feature_config = [
+                {
+                    'prefix': 'first',
+                    'aggregates': [
+                        {'quantity': 'a1', 'metrics': ['sum']},
+                        {'quantity': 'a2', 'metrics': ['max']}
+                    ],
+                    'categoricals': [
+                        {'column': 'c1', 'choices': ['top', 'bottom', 'charm', 'strange'], 'metrics': ['min']}
+                    ],
+                    'intervals': ['1y'],
+                    'groups': ['entity_id']
+                },
+                {
+                    'prefix': 'second',
+                    'aggregates': [
+                        {'quantity': 'a3', 'metrics': ['sum']}
+                    ],
+                    'categoricals': [
+                        {'column': 'c3', 'choices': ['one', 'two'], 'metrics': ['sum']}
+                    ],
+                    'intervals': ['10y'],
+                    'groups': ['entity_id']
+                }
+            ]
+
+            # create training set
+            matrix = pandas.DataFrame.from_dict({
+                'entity_id': [1,2,3,4],
+                'first_entity_id_1y_c1_top_min': [0,1,0,0],
+                'first_entity_id_1y_c1_bottom_min': [1,0,0,0],
+                'first_entity_id_1y_c1__NULL_min': [0,0,1,0],
+                'first_entity_id_1y_a1_sum': [12,7,0,2],
+                'first_entity_id_1y_a2_max': [3,1,4,1],
+                'second_entity_id_10y_a3_sum': [5,9,2,6],
+                'second_entity_id_10y_c3_one_sum': [1,1,0,1],
+                'second_entity_id_10y_c3_two_sum': [0,0,1,0],
+                'outcome': [0,1,0,0]
+            })
+            # ensure column order
+            matrix = matrix[['entity_id', 'as_of_date', 'first_entity_id_1y_c1_top_min', 
+                     'first_entity_id_1y_c1_bottom_min', 'first_entity_id_1y_c1__NULL_min',
+                     'first_entity_id_1y_a1_sum', 'first_entity_id_1y_a2_max',
+                     'second_entity_id_10y_a3_sum', 'second_entity_id_10y_c3_one_sum',
+                     'second_entity_id_10y_c3_two_sum', 'outcome'
+            ]]
+            metadata = {
+                'beginning_of_time': datetime.date(2012, 12, 20),
+                'end_time': datetime.date(2016, 12, 20),
+                'label_name': 'outcome',
+                'label_window': '1y',
+                'metta-uuid': '1234',
+                'feature_names': ['first_entity_id_1y_c1_top_min', 
+                     'first_entity_id_1y_c1_bottom_min', 'first_entity_id_1y_c1__NULL_min',
+                     'first_entity_id_1y_a1_sum', 'first_entity_id_1y_a2_max',
+                     'second_entity_id_10y_a3_sum', 'second_entity_id_10y_c3_one_sum',
+                     'second_entity_id_10y_c3_two_sum'
+                ],
+                'indices': ['entity_id'],
+            }
+            project_path = 'econ-dev/inspections'
+            model_storage_engine = S3ModelStorageEngine(s3_conn, project_path)
+            trainer = ModelTrainer(
+                project_path=project_path,
+                experiment_hash=None,
+                model_storage_engine=model_storage_engine,
+                db_engine=engine,
+                model_group_keys=['label_name', 'label_window'],
+                feature_config=feature_config
+            )
+            matrix_store = InMemoryMatrixStore(matrix, metadata)
+            model_ids = trainer.train_models(
+                grid_config=grid_config,
+                misc_db_parameters=dict(),
+                matrix_store=matrix_store
+            )
+
+            # assert categoricals were properly detected and passed to model
+            records = [
+                row for row in
+                engine.execute('select model_hash from results.models')
+            ]
+
+            cache_keys = [
+                model_cache_key(project_path, model_row[0], s3_conn)
+                for model_row in records
+            ]
+
+            model_pickles = [
+                pickle.loads(cache_key.get()['Body'].read())
+                for cache_key in cache_keys
+            ]
+
+            assert model_pickles[0].categoricals == [[0, 1, 2], [6, 7]]
+
+
 def test_n_jobs_not_new_model():
     grid_config = {
         'sklearn.ensemble.AdaBoostClassifier': {
