@@ -183,7 +183,11 @@ def test_model_trainer():
 
 
 def test_model_trainer_categoricals():
-    with testing.postgresql.Postgresql() as postgresql:
+    # DELETE ME
+    pgpath = '/usr/lib/postgresql/9.6/bin/'
+    # DELETE ME
+    with testing.postgresql.Postgresql(initdb=pgpath+'initdb', postgres=pgpath+'postgres') as postgresql:
+#    with testing.postgresql.Postgresql() as postgresql:
         engine = create_engine(postgresql.url())
         ensure_db(engine)
 
@@ -239,7 +243,7 @@ def test_model_trainer_categoricals():
                 'outcome': [0,1,0,0]
             })
             # ensure column order
-            matrix = matrix[['entity_id', 'as_of_date', 'first_entity_id_1y_c1_top_min', 
+            matrix = matrix[['entity_id', 'first_entity_id_1y_c1_top_min', 
                      'first_entity_id_1y_c1_bottom_min', 'first_entity_id_1y_c1__NULL_min',
                      'first_entity_id_1y_a1_sum', 'first_entity_id_1y_a2_max',
                      'second_entity_id_10y_a3_sum', 'second_entity_id_10y_c3_one_sum',
