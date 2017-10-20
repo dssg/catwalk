@@ -10,6 +10,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils import check_array
 from sklearn.utils.validation import FLOAT_DTYPES
 
+MAX_INT = np.iinfo(np.int32).max
+
 def flatten_list(l):
     """
     Simple utility to flatten a list down to one dimension even if the list
@@ -121,15 +123,8 @@ class SubsetWithCategoricals(BaseEstimator, TransformerMixin):
     def __init__(self, categoricals, max_features='sqrt', random_state=None, copy=True):
         self.max_features = max_features
         self.categoricals = categoricals
+        self.random_state = random_state
         self.copy = copy
-        if isinstance(random_state, int):
-            random.seed(random_state)
-        elif isinstance(random_state, np.random.RandomState):
-            # feels like a bit of a hack, but np doesn't seem to handle
-            # lists of mixed types so well, so using random.sample()
-            # and pretty sure this should be deterministic if a RandomState
-            # object is passed
-            random.seed(random_state.get_state()[1].sum())
 
     def _infer_max_features(self, num_features):
         if isinstance(self.max_features, float):
@@ -146,6 +141,11 @@ class SubsetWithCategoricals(BaseEstimator, TransformerMixin):
             raise ValueError('Invalid value for max_features: %s' % self.max_features)
 
     def fit(self, X, y=None):
+        if isinstance(self.random_state, int):
+            random.seed(self.random_state)
+        elif isinstance(self.random_state, np.random.RandomState):
+            random.seed(self.random_state.randint(MAX_INT))
+
         features = list(range(X.shape[1]))
 
         all_cats = set(flatten_list(self.categoricals))

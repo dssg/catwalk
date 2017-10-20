@@ -9,6 +9,11 @@ from sklearn.ensemble import BaggingClassifier
 
 from catwalk.estimators.transformers import CutOff, SubsetWithCategoricals
 
+import numpy as np
+import random
+
+MAX_INT = np.iinfo(np.int32).max
+
 class ScaledLogisticRegression(BaseEstimator, ClassifierMixin):
     """
     An in-place replacement for the scikit-learn's LogisticRegression.
@@ -120,7 +125,9 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
         self.class_weight = class_weight
         self.presort = presort
 
-        self.subset_cols = SubsetWithCategoricals(categoricals=categoricals, max_features=max_features)
+        self.subset_cols = SubsetWithCategoricals(
+            categoricals=categoricals, max_features=max_features, random_state=random_state
+        )
         self.tree = DecisionTreeClassifier(
             criterion=criterion, splitter=splitter, max_depth=max_depth, min_samples_split=min_samples_split,
             min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
@@ -134,6 +141,12 @@ class CatInATreeClassifier(BaseEstimator, ClassifierMixin):
         ])
 
     def fit(self, X, y):
+
+        # set the underlying random states before fitting
+        # doing this here rather than in the constructor because self.random_state might
+        # have been modified by an ensemble method
+        self.pipeline.named_steps['subset_cols'].set_params(random_state=self.random_state)
+        self.pipeline.named_steps['tree'].set_params(random_state=self.random_state)
 
         self.pipeline.fit(X, y)
 
@@ -190,13 +203,18 @@ class CatInAForestClassifier(BaggingClassifier):
         min_weight_fraction_leaf=0., max_leaf_nodes=None, min_impurity_split=1e-07, 
         class_weight=None, presort=False):
 
+        # if isinstance(random_state, int):
+        #     random.seed(random_state)
+        # elif isinstance(random_state, np.random.RandomState):
+        #     random.seed(random_state.randint(MAX_INT))
+
         # set up the base estimator as a CatInATreeClassifier()
         self.base_estimator = CatInATreeClassifier(
-            categoricals=categoricals, max_features=max_features_tree, random_state=random_state, 
-            criterion=criterion, splitter=splitter, max_depth=max_depth, 
-            min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, 
-            min_weight_fraction_leaf=min_weight_fraction_leaf, max_leaf_nodes=max_leaf_nodes, 
-            min_impurity_split=min_impurity_split, class_weight=class_weight, presort=presort
+            categoricals=categoricals, max_features=max_features_tree, criterion=criterion, 
+            splitter=splitter, max_depth=max_depth, min_samples_split=min_samples_split, 
+            min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf, 
+            max_leaf_nodes=max_leaf_nodes, min_impurity_split=min_impurity_split, 
+            class_weight=class_weight, presort=presort
             )
 
         # Call the super-class's constructor

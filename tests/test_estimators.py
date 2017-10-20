@@ -1,11 +1,14 @@
 import numpy as np
+import pandas as pd
 
 import warnings
 
 import pytest
 
-from catwalk.estimators.transformers import CutOff
-from catwalk.estimators.classifiers import ScaledLogisticRegression
+from catwalk.estimators.transformers import CutOff, \
+    SubsetWithCategoricals, flatten_list
+from catwalk.estimators.classifiers import ScaledLogisticRegression, \
+    CatInATreeClassifier, CatInAForestClassifier
 
 from sklearn import linear_model
 
@@ -74,3 +77,99 @@ def test_dsapp_lr(data):
     pipeline.fit(data['X_train'], data['y_train'])
 
     assert np.all(dsapp_lr.predict(data['X_test']) == pipeline.predict(data['X_test']))
+
+def test_flatten_list():
+    assert flatten_list([1, [2,3], [4, [5]], [], 6]) == [1,2,3,4,5,6]
+    assert flatten_list([]) == []
+    assert flatten_list([1,2,3]) == [1,2,3]
+    assert flatten_list([[1,2]]) == [1,2]
+
+def test_subset_with_categoricals():
+    df = pd.DataFrame({
+        'entity_id': [1,2,3,4],
+        'as_of_date': ['2012-01-01','2012-01-01','2012-01-01','2012-01-01'],
+        'first_entity_id_1y_c1_top_min': [0,1,0,0],
+        'first_entity_id_1y_c1_bottom_min': [1,0,0,0],
+        'first_entity_id_1y_c1__NULL_min': [0,0,1,0],
+        'first_entity_id_1y_a1_sum': [12,7,0,2],
+        'first_entity_id_1y_a2_max': [3,1,4,1],
+        'second_entity_id_10y_a3_sum': [5,9,2,6],
+        'second_entity_id_10y_c3_one_sum': [1,1,0,1],
+        'second_entity_id_10y_c3_two_sum': [0,0,1,0],
+        'outcome': [0,1,0,0]
+        })
+    # ensure column order
+    df = df[['entity_id', 'as_of_date', 'first_entity_id_1y_c1_top_min', 
+             'first_entity_id_1y_c1_bottom_min', 'first_entity_id_1y_c1__NULL_min',
+             'first_entity_id_1y_a1_sum', 'first_entity_id_1y_a2_max',
+             'second_entity_id_10y_a3_sum', 'second_entity_id_10y_c3_one_sum',
+             'second_entity_id_10y_c3_two_sum', 'outcome'
+    ]]
+
+    # random seed 0
+    sc = SubsetWithCategoricals(
+            categoricals=[[0, 1, 2], [6, 7]],
+            random_state=0
+        )
+
+    samp = sc.fit_transform(df.drop(['entity_id', 'as_of_date', 'outcome'], axis=1).values)
+
+    assert np.all(samp == np.array([  
+            [ 0.,  1.,  0.,  1.,  0.],
+            [ 1.,  0.,  0.,  1.,  0.],
+            [ 0.,  0.,  1.,  0.,  1.],
+            [ 0.,  0.,  0.,  1.,  0.]
+    ]))
+    assert sc.max_features_ == 2
+    assert sc.subset_indices == [0, 1, 2, 6, 7]
+
+    # random seed 1
+    sc = SubsetWithCategoricals(
+            categoricals=[[0, 1, 2], [6, 7]],
+            random_state=1
+        )
+
+    samp = sc.fit_transform(df.drop(['entity_id', 'as_of_date', 'outcome'], axis=1).values)
+
+    assert np.all(samp == np.array([
+            [ 12.,   3.],
+            [  7.,   1.],
+            [  0.,   4.],
+            [  2.,   1.]
+    ]))
+    assert sc.max_features_ == 2
+    assert sc.subset_indices == [3,4]
+
+def test_cat_in_a_tree(data):
+    # just for the purposes of testing, assuming several of the columns are categoricals
+    categoricals = [[2,3,4], [7,8,9,10,11], [13,14], [22,23,24,25]]
+
+    clf = CatInATreeClassifier(categoricals=categoricals, max_features=7, random_state=12345)
+    clf.fit(data['X_train'], data['y_train'])
+
+    assert clf.max_features_ == 7
+    assert clf.subset_indices == [0, 7, 8, 9, 10, 11, 12, 16, 19, 21, 27]
+    
+    pred = clf.predict_proba(data['X_test'])
+    assert len(pred) == len(data['y_test'])
+    # specific to the breast cancer data...
+    assert round(sum([p[1] for p in pred])) == 102
+
+
+def test_cat_in_a_forest(data):
+    # just for the purposes of testing, assuming several of the columns are categoricals
+    categoricals = [[2,3,4], [7,8,9,10,11], [13,14], [22,23,24,25]]
+
+    clf = CatInAForestClassifier(categoricals=categoricals, max_features_tree=7, n_estimators=3, random_state=12345)
+    clf.fit(data['X_train'], data['y_train'])
+
+    assert clf.estimators_[0].max_features_ == 7
+    assert clf.estimators_[0].subset_indices == [0, 1, 6, 12, 13, 14, 18, 22, 23, 24, 25]
+    assert clf.estimators_[1].subset_indices == [0, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 21]
+    assert clf.estimators_[2].subset_indices == [0, 2, 3, 4, 12, 13, 14, 15, 27, 28]
+    
+    pred = clf.predict_proba(data['X_test'])
+    assert len(pred) == len(data['y_test'])
+    # specific to the breast cancer data...
+    # even with 
+    assert round(sum([p[1] for p in pred])) == 108
