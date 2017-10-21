@@ -14,7 +14,9 @@ from catwalk.utils import \
     filename_friendly_hash, \
     retrieve_model_id_from_hash, \
     db_retry, \
-    save_db_objects
+    save_db_objects, \
+    bag_of_cats, \
+    find_cats
 
 from results_schema import Model, FeatureImportance
 
@@ -38,6 +40,7 @@ class ModelTrainer(object):
         model_storage_engine,
         db_engine,
         model_group_keys,
+        feature_config,
         replace=True
     ):
         self.project_path = project_path
@@ -46,6 +49,7 @@ class ModelTrainer(object):
         self.db_engine = db_engine
         self.sessionmaker = sessionmaker(bind=self.db_engine)
         self.model_group_keys = model_group_keys
+        self.feature_config = feature_config
         self.replace = replace
 
     def unique_parameters(self, parameters):
@@ -101,8 +105,17 @@ class ModelTrainer(object):
         module_name, class_name = class_path.rsplit(".", 1)
         module = importlib.import_module(module_name)
         cls = getattr(module, class_name)
-        instance = cls(**parameters)
         y = matrix_store.labels()
+        model_params = parameters.copy() # copy since we may modify
+
+        # if using a classifier that samples respecting categoricals, detect the
+        # groups of categoricals and add them to the model parameter set
+        if class_name in ['CatInATreeClassifier', 'CatInAForestClassifier']:
+            cats_regex = bag_of_cats(self.feature_config)
+            categoricals = find_cats(matrix_store.matrix.columns.values, cats_regex)
+            model_params['categoricals'] = categoricals
+
+        instance = cls(**model_params)
 
         return instance.fit(matrix_store.matrix, y), matrix_store.matrix.columns
 
