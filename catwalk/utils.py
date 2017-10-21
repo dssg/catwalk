@@ -242,6 +242,13 @@ def find_cats(matrix_cols, cats_regex, exclude_cols=None):
         exclude_cols = ['entity_id', 'as_of_date', 'outcome']
     feature_cols = [c for c in matrix_cols if c not in exclude_cols]
 
+    # add in regex to make sure imputed flags always come along with
+    # their reference columns
+    imp_regex = [
+        r'^%s(_imp)?$' % col[:-4] for col in matrix_cols if col[-4:] == '_imp'
+    ]
+    cats_regex += imp_regex
+
     # We want the sets of numberical indices of columns that match our
     # categorical patterns, so loop trough the column names then through
     # the patterns, checking each one for a match. Here, `cats_dict`

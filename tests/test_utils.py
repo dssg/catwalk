@@ -151,6 +151,7 @@ def test_bag_of_cats():
     ])
 
 def test_find_cats():
+    # test with just categoricals
     cat_regex = [r'^first_entity_id_1y_c1_(.*)_min$', r'^second_entity_id_10y_c3_(.*)_sum$']
     df = pd.DataFrame({
         'entity_id': [1,2,3,4],
@@ -176,3 +177,10 @@ def test_find_cats():
     cat_cols = find_cats(df.columns.values, cat_regex)
 
     assert sorted([sorted(c) for c in cat_cols]) == [[0, 1, 2], [6, 7]]
+
+    # test with categoricals and imputed flags
+    df['first_entity_id_1y_a1_sum_imp'] = [0,0,0,1]
+    df['second_entity_id_10y_a3_sum_imp'] = [0,1,0,1]
+
+    cat_cols = find_cats(df.columns.values, cat_regex)
+    assert sorted([sorted(c) for c in cat_cols]) == [[0, 1, 2], [3,8], [5,9], [6, 7]]
