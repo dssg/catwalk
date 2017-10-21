@@ -235,6 +235,10 @@ def find_cats(matrix_cols, cats_regex, exclude_cols=None):
     """
     Assign matrix columns (by their numerical indices) to groups
     of categoricals based on matching to a regex pattern
+
+    Note that groupings of imputed columns along with their
+    underlying columns will be included in the returned result
+    as well.
     """
 
     # be sure we exclude entity id, date, and label
@@ -244,6 +248,8 @@ def find_cats(matrix_cols, cats_regex, exclude_cols=None):
 
     # add in regex to make sure imputed flags always come along with
     # their reference columns
+    # TODO: maybe return these as a separate list to allow models to
+    #       treat them differently than categoricals.
     imp_regex = [
         r'^%s(_imp)?$' % col[:-4] for col in matrix_cols if col[-4:] == '_imp'
     ]
