@@ -8,6 +8,8 @@ Training, testing, and evaluating machine learning classifier models
 
 **Note**: Catwalk is now a bundled component of [Triage](https://github.com/dssg/triage), and future development will take place there. To utilize Catwalk within your custom pipeline, you may still import it from there.
 
+---
+
 At the core of many predictive analytics applications is the need to train classifiers on large set of design matrices, test and temporally cross-validate them, and generate evaluation metrics about them.
 
 Python's scikit-learn package provides much of this functionality, but it is not trivial to design large experiments with it in a persistable way. Catwalk builds upon the functionality offered by scikit-learn by implementing:
