@@ -1,5 +1,5 @@
 -r requirements.txt
-pip==9.0.1
+pip==19.2
 bumpversion==0.5.3
 flake8==3.3.0
 coverage==4.4.1
